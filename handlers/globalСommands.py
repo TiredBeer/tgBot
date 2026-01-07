@@ -15,13 +15,12 @@ async def cmd_help(message: types.Message):
     await message.answer(
         "/help - помощь\n"
         "/choose_course - выбрать курс\n"
-        "/get_lesson - посмотреть темы домашних заданий\n"
-        "/get_graves - посмотреть гробы"
+        "/get_lesson - посмотреть темы уроков и сдать задания"
     )
 
 
 @router.message(Command("start"))
-async def cmd_help(message: types.Message):
+async def cmd_start(message: types.Message):
     await message.answer(
         "Привет, я бот для отправок домашних работ и гробов по теории вероятности и математической статистике\n"
         "Узнать о моем функционале: /help"
@@ -72,10 +71,3 @@ async def get_my_course(message: types.Message, state: FSMContext):
 
     await message.answer("Вот твои доступные курсы", reply_markup=kb)
     await state.set_state(CourseSelect.waiting_for_course)
-
-
-@router.message(Command("get_graves"))
-async def get_graves(message: types.Message, state: FSMContext):
-    pass
-    #await state.update_data(is_graves=True)
-    #await get_lesson(message, state)

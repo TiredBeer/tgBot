@@ -47,9 +47,20 @@ async def get_or_load_user_from_db(state: FSMContext, message: Message) -> bool:
     return True
 
 
+TASK_TYPE_TO_DIR = {
+    0: "homework",
+    1: "doreshka",
+    2: "graves",
+}
+
 async def get_mask_for_save(state: FSMContext) -> str:
     data = await state.get_data()
+    student_id = data["student_id"]
     course_id = data["course_id"]
-    task_id = data["task_id"]
-    user_id = data["user_id"]
-    return f"{course_id}/{task_id}/{user_id}/fl_"
+    topic_name = data["topic_name"]
+    task_type = data.get("task_type", 0)
+
+    type_dir = TASK_TYPE_TO_DIR.get(task_type, "homework")
+
+    return f"{course_id}/{topic_name}/{type_dir}/{student_id}/"
+

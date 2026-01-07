@@ -1,10 +1,10 @@
 import asyncio
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
-from config import BOT_TOKEN
+from config import BOT_TOKEN, ALERT_TIME
 from utils.auth import AuthMiddleware
 from handlers import globalСommands, lesson, rolllback, course
-
+from utils.alerts import alerts
 
 async def main():
     bot = Bot(token=BOT_TOKEN)
@@ -14,6 +14,9 @@ async def main():
     dp.include_router(lesson.router)
     dp.include_router(course.router)
     dp.include_router(rolllback.router)
+
+    asyncio.create_task(alerts(bot, sleep=ALERT_TIME)) # час
+
     await dp.start_polling(bot)
 
 

@@ -1,9 +1,18 @@
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 
-send_or_select_topic = ReplyKeyboardMarkup(
+lesson_actions_keyboard = ReplyKeyboardMarkup(
     keyboard=[
+        [KeyboardButton(text="Отправить домашку")],
+        [KeyboardButton(text="Отправить дорешку")],
+        [KeyboardButton(text="Отправить гробы")],
         [KeyboardButton(text="Выбрать другую тему")],
-        [KeyboardButton(text="Отправить задание")]
+    ],
+    resize_keyboard=True
+)
+
+cancel_files_keyboard = ReplyKeyboardMarkup(
+    keyboard=[
+        [KeyboardButton(text="Я передумал, вернемся к выбору действий")],
     ],
     resize_keyboard=True
 )

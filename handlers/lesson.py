@@ -2,15 +2,14 @@ import asyncio
 from collections import defaultdict
 from aiogram.fsm.context import FSMContext
 from aiogram import Router, types, F, Bot
-from aiogram.types import ReplyKeyboardRemove, InputMediaDocument, InputFile, \
-    BufferedInputFile
+from aiogram.types import InputMediaDocument, BufferedInputFile
 from yandexAPI.loader import upload_all_or_none, get_files_by_mask
 from database.request import get_last_verified_work, \
     get_task_id_by_topic_name, save_submission_to_db, has_student_submitted, \
     get_task_info_by_id, get_last_work
 from handlers.course import show_course_topics
-from keyboards.reply import send_or_select_topic
-from states.register import LessonSelect, GravesSelect
+from keyboards.reply import lesson_actions_keyboard, cancel_files_keyboard
+from states.register import LessonSelect
 from utils.auth import get_mask_for_save
 
 router = Router()
@@ -20,39 +19,22 @@ album_cache: dict[str, list[types.Message]] = defaultdict(list)
 @router.message(LessonSelect.waiting_for_topic)
 async def handle_topic_selection(message: types.Message, state: FSMContext):
     data = await state.get_data()
-    student_id = data.get("student_id")
     tasks = data["tasks"]
-    course_id = data.get("course_id")
     topic_name = message.text.strip()
 
     if topic_name not in tasks:
         await message.answer("Такой темы нет. Выбери из списка.")
         return
-    task_id = await get_task_id_by_topic_name(topic_name, course_id)
-    await state.update_data(task_id=task_id)
-    await state.update_data(topic_name=topic_name)
-    if "is_graves" in data and data["is_graves"]:
-        await message.answer("Ты попал в тему гробов", reply_markup=ReplyKeyboardRemove())
-        await state.set_state(GravesSelect.waiting_for_topic)
-        return
-    submitted_task = await has_student_submitted(student_id, task_id)
-    if not submitted_task:
-        task = await get_task_info_by_id(task_id)
-        if task:
-            await message.answer(
-                f"Ты еще не отправлял домашнее задание по этой теме\n"
-                f"📚 Тема: {task.topic}\n"
-                f"📅 Дедлайн: {task.deadline.strftime('%d.%m.%Y') if task.deadline else '—'}\n"
-                f"👤 Преподаватель: {task.teacher.name}"
-            )
-        else:
-            await message.answer("Задание не найдено.")
-    else:
-        await print_task_information(message, state)
 
-    await message.answer("Что ты хочешь сделать дальше?",
-                         reply_markup=send_or_select_topic)
+    # сохраняем только тему, тип выберем позже по кнопке
+    await state.update_data(topic_name=topic_name)
+
+    await message.answer(
+        "Тема выбрана. Что именно хочешь отправить?",
+        reply_markup=lesson_actions_keyboard
+    )
     await state.set_state(LessonSelect.after_topic)
+
 
 
 async def print_task_information(message: types.Message, state: FSMContext):
@@ -67,6 +49,7 @@ async def print_task_information(message: types.Message, state: FSMContext):
     topic = last_work.task.topic
     deadline = last_work.task.deadline
     teacher_name = last_work.task.teacher.name
+    telegram_nickname = last_work.task.teacher.telegram_nickname
     comment = last_work.comment
     status_name = last_work.status.name
     grade = last_work.grade
@@ -75,8 +58,8 @@ async def print_task_information(message: types.Message, state: FSMContext):
     text = (
         "Вот твоя последняя отправленная работа\n"
         f"📚 Тема: {topic}\n"
-        f"📅 Дедлайн: {deadline}\n"
-        f"👤 Преподаватель: {teacher_name}\n"
+        f"📅 Дедлайн: {deadline.strftime('%d.%m.%Y')}\n"
+        f"👤 Преподаватель: {teacher_name} {telegram_nickname}\n"
         f"📌 Статус: {status_name}\n"
         f"📨 Отправлено: {sent_at}\n"
     )
@@ -86,7 +69,9 @@ async def print_task_information(message: types.Message, state: FSMContext):
         text += f"📝 Оценка: {grade}\n💬 Комментарий: {comment}"
     elif grade != 0:
         text += (f"\nТвой предыдущая работа было оценена на {grade}\n"
-                 f"С комментарием: {comment}")
+             f"С комментарием: {comment}\n"
+             f"Твоя новая работа отпарвлена на проверку"
+        )
 
     prefix = last_work.homework_prefix
     files = await get_files_by_mask(prefix)
@@ -130,63 +115,150 @@ async def handle_send_homework(message: types.Message, state: FSMContext):
     await state.set_state(LessonSelect.waiting_for_files)
 
 
-@router.message(LessonSelect.waiting_for_files, F.media_group_id)
+@router.message(LessonSelect.waiting_for_files, F.document, F.media_group_id)
 async def handle_get_album(message: types.Message, state: FSMContext):
-    media_group_id = str(message.media_group_id)
-    data = await state.get_data()
-    album_cache = data.get("media_group", {})
+    group_id = str(message.media_group_id)
+    album_cache[group_id].append(message)
 
-    album_cache.setdefault(media_group_id, []).append(message)
-    await state.update_data(media_group=album_cache)
+    # ждём, пока телега дошлёт все части альбома
+    await asyncio.sleep(1.0)
 
-    # Ждём, пока Telegram пришлёт все части альбома
-    await asyncio.sleep(1)
-
-    # Повторно получаем данные
-    data = await state.get_data()
-    messages = data.get("media_group", {}).get(media_group_id, [])
-
-    # Только последнее сообщение обрабатывает
-    if message.message_id != messages[-1].message_id:
+    messages = album_cache.pop(group_id, None)
+    if not messages:
         return
 
-    is_uncorrected_files = False
-    files = []
     mask_prefix = await get_mask_for_save(state)
+    files: list[dict] = []
+
     for msg in messages:
-        if msg.document:
-            file_name = msg.document.file_name.lower()
-            if file_name.endswith(".pdf") or file_name.endswith(".py"):
-                files.append({
-                    "file_id": msg.document.file_id,
-                    "original_file_name": msg.document.file_name,
-                    "mask_for_save": mask_prefix
-                })
-            else:
-                is_uncorrected_files = True
-                break
-    if is_uncorrected_files:
-        await message.answer(
-            "Ты отправил недопустимые файлы. Принимаются только .pdf и .py. Попробуй еще раз.")
+        doc = msg.document
+        if not doc:
+            continue
+
+        file_name = doc.file_name.lower()
+        if not (file_name.endswith(".pdf") or file_name.endswith(".py")):
+            await message.answer(
+                "Ты отправил недопустимые файлы. Принимаются только .pdf и .py. "
+                "Попробуй еще раз."
+            )
+            return
+
+        files.append(
+            {
+                "file_id": doc.file_id,
+                "original_file_name": doc.file_name,
+                "mask_for_save": mask_prefix,
+            }
+        )
+
+    if not files:
+        await message.answer("В альбоме не найдено подходящих файлов.")
         return
 
     await after_accepting_files(files, message, state, mask_prefix)
 
 
-@router.message(LessonSelect.waiting_for_files, F.document)
+@router.message(LessonSelect.waiting_for_files, F.document, ~F.media_group_id)
 async def handle_get_single_file(message: types.Message, state: FSMContext):
     file_name = message.document.file_name.lower()
     if not (file_name.endswith(".pdf") or file_name.endswith(".py")):
         await message.answer(
-            "Ты отправил недопустимые файл. Принимаются только .pdf и .py. Попробуй еще раз.")
+            "Ты отправил недопустимый файл. Принимаются только .pdf и .py. "
+            "Попробуй еще раз."
+        )
         return
+
     mask_prefix = await get_mask_for_save(state)
     file = {
         "file_id": message.document.file_id,
         "original_file_name": message.document.file_name,
-        "mask_for_save": mask_prefix
+        "mask_for_save": mask_prefix,
     }
     await after_accepting_files([file], message, state, mask_prefix)
+
+from aiogram.types import ReplyKeyboardRemove
+
+@router.message(LessonSelect.after_topic)
+async def handle_after_topic(message: types.Message, state: FSMContext):
+    text = message.text.strip()
+    data = await state.get_data()
+    student_id = data.get("student_id")
+    course_id = data.get("course_id")
+    topic_name = data.get("topic_name")
+
+    # 1) выбрать другую тему
+    if text == "Выбрать другую тему":
+        await message.answer(
+            "Выбери тему из списка:",
+            reply_markup=ReplyKeyboardRemove()
+        )
+        # тут ты заново шлёшь список тем и:
+        await state.set_state(LessonSelect.waiting_for_topic)
+        return
+
+    BUTTON_TO_TYPE = {
+        "Отправить домашку": 0,
+        "Отправить дорешку": 1,
+        "Отправить гробы": 2,
+    }
+    # 2) отправить домашку / дорешку / гробы
+    if text in BUTTON_TO_TYPE:
+        task_type = BUTTON_TO_TYPE[text]
+
+        # достаем нужную Task по теме + курсу + типу
+        task_id = await get_task_id_by_topic_name(
+            topic_name=topic_name,
+            course_id=course_id,
+            task_type=task_type,  # <--- важно!
+        )
+
+        if not task_id:
+            await message.answer("Для этой темы и типа работы задание не найдено.")
+            return
+
+        await state.update_data(task_id=task_id, task_type=task_type)
+
+        submitted_task = await has_student_submitted(student_id, task_id)
+
+        if not submitted_task:
+            task = await get_task_info_by_id(task_id)
+            if task:
+                await message.answer(
+                    f"Ты еще не отправлял эту работу\n"
+                    f"📚 Тема: {task.topic}\n"
+                    f"📅 Дедлайн: {task.deadline.strftime('%d.%m.%Y') if task.deadline else '—'}\n"
+                    f"👤 Преподаватель: {task.teacher.name} {task.teacher.telegram_nickname}\n"
+                )
+            else:
+                await message.answer("Задание не найдено.")
+        else:
+            # тут можешь либо показать инфу, либо сразу предложить 'перезалить'
+            await print_task_information(message, state)
+
+        await message.answer(
+            "Пришли файлы одним сообщением:",
+            reply_markup=cancel_files_keyboard
+        )
+        await state.set_state(LessonSelect.waiting_for_files)
+        return
+
+    # 3) любой левый текст
+    await message.answer(
+        "Пожалуйста, выбери действие с кнопок ниже.",
+        reply_markup=lesson_actions_keyboard
+    )
+
+
+@router.message(
+    LessonSelect.waiting_for_files,
+    F.text == "Я передумал, вернемся к выбору действий"
+)
+async def cancel_file_upload(message: types.Message, state: FSMContext):
+    await message.answer(
+        "Ок, возвращаемся к выбору действий.",
+        reply_markup=lesson_actions_keyboard,
+    )
+    await state.set_state(LessonSelect.after_topic)
 
 
 async def after_accepting_files(files, message, state, mask_prefix):
@@ -200,7 +272,7 @@ async def after_accepting_files(files, message, state, mask_prefix):
         await state.update_data(submitted_files=files)
         await print_task_information(message, state)
         await message.answer("Что ты хочешь сделать дальше?",
-                             reply_markup=send_or_select_topic)
+                             reply_markup=lesson_actions_keyboard)
         await state.set_state(LessonSelect.after_topic)
     else:
         await message.answer(
@@ -208,6 +280,10 @@ async def after_accepting_files(files, message, state, mask_prefix):
         await state.set_state(LessonSelect.waiting_for_files)
 
 
-@router.message(LessonSelect.waiting_for_files)
+@router.message(
+    LessonSelect.waiting_for_files,
+    ~F.document,
+    F.text != "Я передумал, вернемся к выбору действий"
+)
 async def reject_non_files(message: types.Message):
     await message.answer("Пожалуйста, отправь файл формата .pdf или .py.")

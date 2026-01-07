@@ -43,6 +43,9 @@ async def upload_all_or_none(files: list[dict], bot: Bot) -> bool:
         print(f"Ошибка при получении списка старых файлов: {e}")
         return False
 
+    # МНОГО ВАЖНО: какие ключи должны остаться после загрузки
+    new_keys = {item["path"] for item in loaded_files}
+
     # 3. Загружаем новые файлы
     try:
         for item in loaded_files:
@@ -56,17 +59,20 @@ async def upload_all_or_none(files: list[dict], bot: Bot) -> bool:
         print(f"Ошибка загрузки: {e}")
         return False
 
-    # 4. Удаляем старые файлы, только если всё загрузилось успешно
-    if old_keys:
+    # 4. Удаляем только те старые файлы, которых НЕТ среди новых
+    keys_to_delete = [k for k in old_keys if k not in new_keys]
+
+    if keys_to_delete:
         try:
-            delete_payload = {"Objects": [{"Key": k} for k in old_keys]}
+            delete_payload = {"Objects": [{"Key": k} for k in keys_to_delete]}
             CLIENT.delete_objects(Bucket=BUCKET_NAME, Delete=delete_payload)
-            print(f"Удалены старые файлы: {old_keys}")
+            print(f"Удалены старые файлы: {keys_to_delete}")
         except Exception as e:
             print(f"Ошибка при удалении старых файлов: {e}")
             return False
 
     return True
+
 
 
 async def get_files_by_mask(prefix: str) -> list[dict] | None:
