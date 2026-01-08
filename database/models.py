@@ -29,12 +29,10 @@ class Student(Base):
                        nullable=False)
 
     submitted_tasks = relationship("SubmittedTask", back_populates="student")
-    group = relationship("Group")
     course = relationship("Course")
 
     __table_args__ = (
         Index("IX_students_course_id", "course_id"),
-        Index("IX_students_group_id", "group_id"),
     )
 
 

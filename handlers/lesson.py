@@ -4,10 +4,11 @@ from aiogram.fsm.context import FSMContext
 from aiogram import Router, types, F, Bot
 from aiogram.types import ReplyKeyboardRemove, InputMediaDocument, BufferedInputFile
 
+from database.models import Task
 from handlers.globalСommands import cmd_help
 from yandexAPI.loader import upload_all_or_none, get_files_by_mask
-from database.request import get_last_verified_work, save_submission_to_db, has_student_submitted, \
-    get_task_info_by_id, get_last_work
+from database.request import save_submission_to_db, has_student_submitted, \
+    get_task_by_id, get_last_work
 from handlers.course import show_course_topics
 from keyboards.reply import send_or_select_topic
 from states.register import LessonSelect
@@ -28,34 +29,40 @@ async def handle_topic_selection(message: types.Message, state: FSMContext):
         return
     await state.update_data(task_id=task_id)
     await state.update_data(topic_name=topic_name)
+    task = await get_task_by_id(task_id)
     submitted_task = await has_student_submitted(student_id, task_id)
     if not submitted_task:
-        task = await get_task_info_by_id(task_id)
         if task:
             await message.answer(
-                f"Ты еще не отправлял домашнее задание по этой теме\n"
+                f"Ты еще не отправлял решение задач по этой теме\n"
                 f"📚 Тема: {task.topic}\n"
+                f"🔗 Ссылка на задачи {task.task_link}\n"
                 f"📅 Дедлайн: {task.deadline.strftime('%d.%m.%Y') if task.deadline else '—'}\n"
                 f"👤 Преподаватель: {task.teacher.name} {task.teacher.telegram_nickname}\n"
             )
         else:
             await message.answer("Задание не найдено.")
     else:
-        await print_task_information(message, state)
+        await print_task_information(
+            message=message,
+            state=state,
+            task=task,
+            is_new_load=True,
+        )
 
     await message.answer("Что ты хочешь сделать дальше?",
                          reply_markup=send_or_select_topic)
     await state.set_state(LessonSelect.after_topic)
 
 
-async def print_task_information(message: types.Message, state: FSMContext):
+async def print_task_information(message: types.Message, state: FSMContext, task: Task, is_new_load):
     await message.answer(
         "Загрузка твоей работы, может занять некоторое время, подожди пожалуйста")
     data = await state.get_data()
     task_id = data["task_id"]
     student_id = data.get("student_id")
     last_work = await get_last_work(student_id, task_id)
-    last_verified_work = await get_last_verified_work(student_id, task_id)
+    # last_verified_work = await get_last_verified_work(student_id, task_id)
 
     topic = last_work.task.topic
     deadline = last_work.task.deadline
@@ -64,24 +71,29 @@ async def print_task_information(message: types.Message, state: FSMContext):
     comment = last_work.comment
     status_name = last_work.status.name
     grade = last_work.grade
-    sent_at = last_work.submitted_date.strftime("%d.%m.%Y %H:%M")
+    last_sent_at = last_work.last_modified_date.strftime("%d.%m.%Y %H:%M")
+    first_sent = last_work.submitted_date.strftime("%d.%m.%Y %H:%M")
 
     text = (
-        "Вот твоя последняя отправленная работа\n"
         f"📚 Тема: {topic}\n"
+        f"🔗 Ссылка на задачи {task.task_link}\n"
         f"📅 Дедлайн: {deadline.strftime('%d.%m.%Y')}\n"
         f"👤 Преподаватель: {teacher_name}  {tg_nick}\n"
         f"📌 Статус: {status_name}\n"
-        f"📨 Отправлено: {sent_at}\n"
+        f"📨 Последняя отправка: {last_sent_at}\n"
+        f"📬 Дата первой сдачи работы: {first_sent}\n"
     )
 
-    print(last_verified_work)
-    if status_name == "Проверено":
-        text += f"📝 Оценка: {grade}\n💬 Комментарий: {comment}"
-    elif grade != 0:
-        text += (f"\nТвой предыдущая работа было оценена на {grade}\n"
-             f"С комментарием: {comment}\n"
-             f"Твоя новая работа отпарвлена на проверку"
+    # print(last_verified_work)
+    if last_work.status_id == 1:
+        # первый раз проверили работу
+        text = f"Твою работу проверили!\n📝 Оценка: {grade}\n💬 Комментарий: {comment}\n\n" + text
+    elif last_work.submitted_date != last_work.last_modified_date:
+        # last_work.status_id = 0, потому что мы уже отпарвли исправления на проверку, но старая оценка то есть
+        text = (
+            f"🟢 Твою прошлую работу оценили: {grade}, c комментарием: {comment} 🟢\n"
+            + "Твою новую работу мы отпарвили препподавателям.\n\n"
+            + text
         )
 
     prefix = last_work.homework_prefix
@@ -197,9 +209,10 @@ async def after_accepting_files(files, message, state, mask_prefix):
     bot = message.bot
     is_ok_load = await upload_all_or_none(files, bot)
     if is_ok_load:
+        task = await get_task_by_id(task_id)
         await save_submission_to_db(student_id, task_id, mask_prefix)
         await state.update_data(submitted_files=files)
-        await print_task_information(message, state)
+        await print_task_information(message, state, task, is_new_load=False)
         await message.answer("Что ты хочешь сделать дальше?",
                              reply_markup=send_or_select_topic)
         await state.set_state(LessonSelect.after_topic)

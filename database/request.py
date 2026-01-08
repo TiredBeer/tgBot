@@ -55,7 +55,7 @@ async def has_student_submitted(student_id: int,
         return result.scalars().first()
 
 
-async def get_task_info_by_id(task_id: int) -> Task | None:
+async def get_task_by_id(task_id: int) -> Task | None:
     async with async_session() as session:
         result = await session.execute(
             select(Task)
@@ -88,12 +88,12 @@ async def save_submission_to_db(student_id: int, task_id: int, prefix: str):
         if existing:
             # Обновляем дату и путь (если хочешь)
             existing.last_modified_date = datetime.now()
-            existing.status_id = 1
+            existing.status_id = 0
         else:
             submission = SubmittedTask(
                 student_id=student_id,
                 task_id=task_id,
-                status_id=1,  # 1 значит на проверке
+                status_id=0, # 0 значит на проверке, 1 Проверено
                 homework_prefix=prefix,
                 submitted_date=datetime.now(),
                 last_modified_date=datetime.now(),
@@ -123,22 +123,21 @@ async def get_last_work(student_id: int,
         )
         return result.scalars().first()
 
-async def get_last_verified_work(student_id: int,
-                                 task_id: int) -> SubmittedTask | None:
-    async with async_session() as session:
-        result = await session.execute(
-            select(SubmittedTask)
-            .options(
-                selectinload(SubmittedTask.task)
-                .selectinload(Task.teacher),
-                selectinload(SubmittedTask.status),
-            )
-            .where(SubmittedTask.student_id == student_id,
-                   SubmittedTask.task_id == task_id, SubmittedTask.status_id == 2)
-            .order_by(desc(SubmittedTask.submitted_date))
-            .limit(1)
-        )
-        return result.scalars().first()
+# async def get_last_verified_work(student_id: int, task_id: int) -> SubmittedTask | None:
+#     async with async_session() as session:
+#         result = await session.execute(
+#             select(SubmittedTask)
+#             .options(
+#                 selectinload(SubmittedTask.task)
+#                 .selectinload(Task.teacher),
+#                 selectinload(SubmittedTask.status),
+#             )
+#             .where(SubmittedTask.student_id == student_id,
+#                    SubmittedTask.task_id == task_id, SubmittedTask.status_id == 2)
+#             .order_by(desc(SubmittedTask.submitted_date))
+#             .limit(1)
+#         )
+#         return result.scalars().first()
 
 
 async def get_submitted_task_with_relations(
