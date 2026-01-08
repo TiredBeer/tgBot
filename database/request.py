@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import datetime
 from sqlalchemy import select, desc
 from sqlalchemy.orm import selectinload
 from database.connect import async_session
@@ -63,17 +63,6 @@ async def get_task_info_by_id(task_id: int) -> Task | None:
             .where(Task.id == task_id)
         )
         return result.scalar_one_or_none()
-
-
-async def get_task_id_by_topic_name(topic_name: str,
-                                    course_id: int) -> int | None:
-    async with async_session() as session:
-        result = await session.execute(
-            select(Task.id).where(Task.topic == topic_name,
-                                  Task.course_id == course_id)
-        )
-        task_id = result.scalar()
-        return task_id
 
 
 

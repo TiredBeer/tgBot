@@ -2,15 +2,15 @@ import asyncio
 from collections import defaultdict
 from aiogram.fsm.context import FSMContext
 from aiogram import Router, types, F, Bot
-from aiogram.types import ReplyKeyboardRemove, InputMediaDocument, InputFile, \
-    BufferedInputFile
+from aiogram.types import ReplyKeyboardRemove, InputMediaDocument, BufferedInputFile
+
+from handlers.globalСommands import cmd_help
 from yandexAPI.loader import upload_all_or_none, get_files_by_mask
-from database.request import get_last_verified_work, \
-    get_task_id_by_topic_name, save_submission_to_db, has_student_submitted, \
+from database.request import get_last_verified_work, save_submission_to_db, has_student_submitted, \
     get_task_info_by_id, get_last_work
 from handlers.course import show_course_topics
 from keyboards.reply import send_or_select_topic
-from states.register import LessonSelect, GravesSelect
+from states.register import LessonSelect
 from utils.auth import get_mask_for_save
 
 router = Router()
@@ -122,6 +122,8 @@ async def handle_reselect_topic(message: types.Message, state: FSMContext):
         await message.answer("Отправь задание одним сообщением",
                              reply_markup=ReplyKeyboardRemove())
         await state.set_state(LessonSelect.waiting_for_files)
+    elif message.text == "🏠 В главное меню":
+        await cmd_help(message)
     else:
         await message.answer("Хайповое мнение, но может выберешь что ты хочешь сделать?",
                              reply_markup=send_or_select_topic)

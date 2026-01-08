@@ -3,6 +3,7 @@ from aiogram import Router, types
 from aiogram.types import (ReplyKeyboardRemove, ReplyKeyboardMarkup,
                            KeyboardButton)
 from database.request import get_topics_by_course_id
+from keyboards.reply import go_home
 from states.register import CourseSelect, LessonSelect
 
 router = Router()
@@ -42,7 +43,7 @@ async def show_course_topics(message: types.Message, course_id: int,
 
     task_name_to_task_id = {task.topic: task.id for task in task_list}
     await state.update_data(task_name_to_task_id=task_name_to_task_id)
-    buttons = [[KeyboardButton(text=task.topic)] for task in task_list]
+    buttons = [[KeyboardButton(text=task.topic)] for task in task_list] + go_home
     kb = ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
 
     await message.answer("Вот доступные темы:", reply_markup=kb)

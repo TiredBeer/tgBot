@@ -6,16 +6,14 @@ from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
 from database.request import get_available_courses_for_student
 from states.register import Lesson, CourseSelect, LessonSelect
 from handlers.course import show_course_topics
-from keyboards.reply import helm_button
+from keyboards.reply import helm_button, go_home
 
 router = Router()
 
 
-@router.message(lambda m: m.text == "ℹ️ Помощь")
-async def cmd_help(message: types.Message):
-    await message.answer("Что делаем?", reply_markup=helm_button)
-
 @router.message(Command("help"))
+@router.message(lambda m: m.text == "🏠 В главное меню")
+@router.message(lambda m: m.text == "ℹ️ Помощь")
 async def cmd_help(message: types.Message):
     await message.answer("Что делаем?", reply_markup=helm_button)
 
@@ -65,7 +63,7 @@ async def get_my_course(message: types.Message, state: FSMContext):
     course_map = {course.name: course.id for course in courses}
     await state.update_data(course_map=course_map)
 
-    buttons = [[KeyboardButton(text=course.name)] for course in courses]
+    buttons = [[KeyboardButton(text=course.name)] for course in courses] + go_home
     kb = ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
 
     await message.answer("Вот твои доступные курсы", reply_markup=kb)
