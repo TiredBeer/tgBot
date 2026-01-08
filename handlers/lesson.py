@@ -111,19 +111,22 @@ async def send_files_with_caption(
     await bot.send_media_group(chat_id=chat_id, media=media)
 
 
-@router.message(LessonSelect.after_topic, F.text == "Выбрать другую тему")
+@router.message(LessonSelect.after_topic)
 async def handle_reselect_topic(message: types.Message, state: FSMContext):
-    data = await state.get_data()
-    course_id = data.get("course_id")
-    await show_course_topics(message, course_id, state)
-    await state.set_state(LessonSelect.waiting_for_topic)
+    if message.text == "Выбрать другую тему":
+        data = await state.get_data()
+        course_id = data.get("course_id")
+        await show_course_topics(message, course_id, state)
+        await state.set_state(LessonSelect.waiting_for_topic)
+    elif message.text == "Отправить задание":
+        await message.answer("Отправь задание одним сообщением",
+                             reply_markup=ReplyKeyboardRemove())
+        await state.set_state(LessonSelect.waiting_for_files)
+    else:
+        await message.answer("Хайповое мнение, но может выберешь что ты хочешь сделать?",
+                             reply_markup=send_or_select_topic)
+        await state.set_state(LessonSelect.after_topic)
 
-
-@router.message(LessonSelect.after_topic, F.text == "Отправить задание")
-async def handle_send_homework(message: types.Message, state: FSMContext):
-    await message.answer("Отправь задание одним сообщением",
-                         reply_markup=ReplyKeyboardRemove())
-    await state.set_state(LessonSelect.waiting_for_files)
 
 
 @router.message(LessonSelect.waiting_for_files, F.media_group_id)
