@@ -64,12 +64,3 @@ async def alerts(bot: Bot, sleep: int = 1):
 
         await asyncio.sleep(sleep)
 
-
-
-async def run_periodic_task():
-    await asyncio.create_task(alerts())
-
-
-if __name__ == '__main__':
-    asyncio.run(alerts())
-

@@ -6,5 +6,5 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 ENDPOINT_URL = os.getenv("ENDPOINT_URL")
 BUCKET_NAME = os.getenv("BUCKET_NAME")
 DATABASE_URL = os.getenv("DATABASE_URL")
-ALERT_TIME = os.getenv("ALERT_TIME")
+ALERT_TIME = int(os.getenv("ALERT_TIME"))
 
