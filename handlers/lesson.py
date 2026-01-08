@@ -21,20 +21,13 @@ album_cache: dict[str, list[types.Message]] = defaultdict(list)
 async def handle_topic_selection(message: types.Message, state: FSMContext):
     data = await state.get_data()
     student_id = data.get("student_id")
-    tasks = data["tasks"]
-    course_id = data.get("course_id")
     topic_name = message.text.strip()
-
-    if topic_name not in tasks:
+    task_id = data.get("task_name_to_task_id", {}).get(topic_name, None)
+    if not task_id:
         await message.answer("Такой темы нет. Выбери из списка.")
         return
-    task_id = await get_task_id_by_topic_name(topic_name, course_id)
     await state.update_data(task_id=task_id)
     await state.update_data(topic_name=topic_name)
-    if "is_graves" in data and data["is_graves"]:
-        await message.answer("Ты попал в тему гробов", reply_markup=ReplyKeyboardRemove())
-        await state.set_state(GravesSelect.waiting_for_topic)
-        return
     submitted_task = await has_student_submitted(student_id, task_id)
     if not submitted_task:
         task = await get_task_info_by_id(task_id)
@@ -43,7 +36,7 @@ async def handle_topic_selection(message: types.Message, state: FSMContext):
                 f"Ты еще не отправлял домашнее задание по этой теме\n"
                 f"📚 Тема: {task.topic}\n"
                 f"📅 Дедлайн: {task.deadline.strftime('%d.%m.%Y') if task.deadline else '—'}\n"
-                f"👤 Преподаватель: {task.teacher.name}"
+                f"👤 Преподаватель: {task.teacher.name} {task.teacher.telegram_nickname}\n"
             )
         else:
             await message.answer("Задание не найдено.")
@@ -67,6 +60,7 @@ async def print_task_information(message: types.Message, state: FSMContext):
     topic = last_work.task.topic
     deadline = last_work.task.deadline
     teacher_name = last_work.task.teacher.name
+    tg_nick = last_work.task.teacher.telegram_nickname
     comment = last_work.comment
     status_name = last_work.status.name
     grade = last_work.grade
@@ -75,8 +69,8 @@ async def print_task_information(message: types.Message, state: FSMContext):
     text = (
         "Вот твоя последняя отправленная работа\n"
         f"📚 Тема: {topic}\n"
-        f"📅 Дедлайн: {deadline}\n"
-        f"👤 Преподаватель: {teacher_name}\n"
+        f"📅 Дедлайн: {deadline.strftime('%d.%m.%Y')}\n"
+        f"👤 Преподаватель: {teacher_name}  {tg_nick}\n"
         f"📌 Статус: {status_name}\n"
         f"📨 Отправлено: {sent_at}\n"
     )
@@ -86,7 +80,9 @@ async def print_task_information(message: types.Message, state: FSMContext):
         text += f"📝 Оценка: {grade}\n💬 Комментарий: {comment}"
     elif grade != 0:
         text += (f"\nТвой предыдущая работа было оценена на {grade}\n"
-                 f"С комментарием: {comment}")
+             f"С комментарием: {comment}\n"
+             f"Твоя новая работа отпарвлена на проверку"
+        )
 
     prefix = last_work.homework_prefix
     files = await get_files_by_mask(prefix)

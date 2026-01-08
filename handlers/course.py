@@ -40,6 +40,8 @@ async def show_course_topics(message: types.Message, course_id: int,
         await message.answer("Тем по этому курсу пока нет.")
         return
 
+    task_name_to_task_id = {task.topic: task.id for task in task_list}
+    await state.update_data(task_name_to_task_id=task_name_to_task_id)
     buttons = [[KeyboardButton(text=task.topic)] for task in task_list]
     kb = ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
 
