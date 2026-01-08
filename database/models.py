@@ -4,12 +4,6 @@ from sqlalchemy.orm import declarative_base, relationship
 Base = declarative_base()
 
 
-class Group(Base):
-    __tablename__ = "groups"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String(256), nullable=False)
-
-
 class Course(Base):
     __tablename__ = "courses"
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -28,8 +22,7 @@ class Status(Base):
 class Student(Base):
     __tablename__ = "students"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    group_id = Column(Integer, ForeignKey("groups.id", ondelete="CASCADE"),
-                      nullable=False)
+    group_name = Column(String(256), nullable=False)
     name = Column(String(256), nullable=False)
     telegram_id = Column(Integer, nullable=False)
     course_id = Column(Integer, ForeignKey("courses.id", ondelete="CASCADE"),
