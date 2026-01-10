@@ -1,5 +1,7 @@
 import asyncio
 from collections import defaultdict
+from zoneinfo import ZoneInfo
+
 from aiogram.fsm.context import FSMContext
 from aiogram import Router, types, F, Bot
 from aiogram.types import ReplyKeyboardRemove, InputMediaDocument, BufferedInputFile
@@ -71,8 +73,12 @@ async def print_task_information(message: types.Message, state: FSMContext, task
     comment = last_work.comment
     status_name = last_work.status.name
     grade = last_work.grade
-    last_sent_at = last_work.last_modified_date.strftime("%d.%m.%Y %H:%M")
-    first_sent = last_work.submitted_date.strftime("%d.%m.%Y %H:%M")
+
+    ekb_tz = ZoneInfo("Asia/Yekaterinburg")
+    last_sent_at = last_work.last_modified_date.astimezone(ekb_tz).strftime("%d.%m.%Y %H:%M")
+    first_sent = last_work.submitted_date.astimezone(ekb_tz).strftime("%d.%m.%Y %H:%M")
+    #last_sent_at = last_work.last_modified_date.strftime("%d.%m.%Y %H:%M")
+    #first_sent = last_work.submitted_date.strftime("%d.%m.%Y %H:%M")
 
     text = (
         f"📚 Тема: {topic}\n"
@@ -86,15 +92,19 @@ async def print_task_information(message: types.Message, state: FSMContext, task
 
     # print(last_verified_work)
     if last_work.status_id == 1:
-        # первый раз проверили работу
-        text = f"Твою работу проверили!\n📝 Оценка: {grade}\n💬 Комментарий: {comment}\n\n" + text
-    elif last_work.submitted_date != last_work.last_modified_date:
+        # Рабрту проверили
+        checking_messages = f"🟢 Твою работу проверили! 🟢\n📝 Оценка: {grade}\n"
+        checking_messages += f"💬 Комментарий: {comment}\n\n" if comment else "\n"
+        text = checking_messages + text
+    elif last_work.submitted_date != last_work.last_modified_date and last_work.grade is not None:
         # last_work.status_id = 0, потому что мы уже отпарвли исправления на проверку, но старая оценка то есть
-        text = (
-            f"🟢 Твою прошлую работу оценили: {grade}, c комментарием: {comment} 🟢\n"
-            + "Твою новую работу мы отпарвили препподавателям.\n\n"
-            + text
+        refactor_massage = (
+            "❗️ Исправления по заданию успешно отправлены.❗️\n"
+            f"👉 Результаты проверки предыдущего решения:\n"
+            f"📊 Оценка: {grade}\n"
         )
+        refactor_massage += f"💬 Комментарий: {comment}\n\n" if comment else "\n"
+        text = refactor_massage + text
 
     prefix = last_work.homework_prefix
     files = await get_files_by_mask(prefix)

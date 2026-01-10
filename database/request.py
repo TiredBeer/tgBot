@@ -1,4 +1,5 @@
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from sqlalchemy import select, desc
 from sqlalchemy.orm import selectinload
 from database.connect import async_session
@@ -84,10 +85,10 @@ async def save_submission_to_db(student_id: int, task_id: int, prefix: str):
             )
         )
         existing: SubmittedTask = result.scalar_one_or_none()
-
+        now = datetime.now(ZoneInfo("Asia/Yekaterinburg"))
         if existing:
             # Обновляем дату и путь (если хочешь)
-            existing.last_modified_date = datetime.now()
+            existing.last_modified_date = now
             existing.status_id = 0
         else:
             submission = SubmittedTask(
@@ -95,9 +96,8 @@ async def save_submission_to_db(student_id: int, task_id: int, prefix: str):
                 task_id=task_id,
                 status_id=0, # 0 значит на проверке, 1 Проверено
                 homework_prefix=prefix,
-                submitted_date=datetime.now(),
-                last_modified_date=datetime.now(),
-                grade=0,
+                submitted_date=now,
+                last_modified_date=now,
                 comment=""
             )
             session.add(submission)
