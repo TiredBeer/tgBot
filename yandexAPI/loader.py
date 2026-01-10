@@ -38,7 +38,13 @@ async def upload_all_or_none(files: list[dict], bot: Bot) -> bool:
     # 2. Получаем старые файлы по префиксу
     try:
         response = CLIENT.list_objects_v2(Bucket=BUCKET_NAME, Prefix=prefix)
-        old_keys = [obj['Key'] for obj in response.get('Contents', [])]
+        new_keys = {item["path"] for item in loaded_files}
+
+        old_keys = [
+            obj["Key"]
+            for obj in response.get("Contents", [])
+            if obj["Key"] not in new_keys
+        ]
     except Exception as e:
         print(f"Ошибка при получении списка старых файлов: {e}")
         return False
