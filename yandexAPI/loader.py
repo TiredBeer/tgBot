@@ -1,3 +1,4 @@
+from pathlib import Path
 import boto3
 from aiogram import Bot
 from io import BytesIO
@@ -52,10 +53,13 @@ async def upload_all_or_none(files: list[dict], bot: Bot) -> bool:
     # 3. Загружаем новые файлы
     try:
         for item in loaded_files:
+            content_type = get_content_type(item["path"])
+            print(content_type, item["path"])
             CLIENT.put_object(
                 Bucket=BUCKET_NAME,
                 Key=item["path"],
-                Body=item["buffer"]
+                Body=item["buffer"],
+                ContentType=content_type,
             )
             print(f"Загружен: {item['path']}")
     except Exception as e:
@@ -95,3 +99,10 @@ async def get_files_by_mask(prefix: str) -> list[dict] | None:
         print(f"Ошибка при получении файлов по маске '{prefix}': {e}")
         return None
     return result
+
+
+def get_content_type(filename: str) -> str:
+    ext = Path(filename).suffix.lower()
+    if ext == ".pdf":
+        return "application/pdf"
+    return "application/octet-stream"
