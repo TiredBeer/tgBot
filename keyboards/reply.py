@@ -18,3 +18,8 @@ send_or_select_topic = ReplyKeyboardMarkup(
     ] + go_home,
     resize_keyboard=True
 )
+
+back_to_topics_kb = ReplyKeyboardMarkup(
+    keyboard=[[KeyboardButton(text="⬅️ К темам")]],
+    resize_keyboard=True,
+)

@@ -12,7 +12,7 @@ from yandexAPI.loader import upload_all_or_none, get_files_by_mask
 from database.request import save_submission_to_db, has_student_submitted, \
     get_task_by_id, get_last_work
 from handlers.course import show_course_topics
-from keyboards.reply import send_or_select_topic
+from keyboards.reply import send_or_select_topic, back_to_topics_kb
 from states.register import LessonSelect
 from utils.auth import get_mask_for_save
 
@@ -141,8 +141,11 @@ async def handle_reselect_topic(message: types.Message, state: FSMContext):
         await show_course_topics(message, course_id, state)
         await state.set_state(LessonSelect.waiting_for_topic)
     elif message.text == "Отправить задание":
-        await message.answer("Отправь задание одним сообщением",
-                             reply_markup=ReplyKeyboardRemove())
+        await message.answer(
+            "Отправь файлы одним сообщением.\n"
+            "Если передумал — нажми «⬅️ К темам».",
+            reply_markup=back_to_topics_kb
+        )
         await state.set_state(LessonSelect.waiting_for_files)
     elif message.text == "🏠 В главное меню":
         await cmd_help(message)
@@ -151,6 +154,14 @@ async def handle_reselect_topic(message: types.Message, state: FSMContext):
                              reply_markup=send_or_select_topic)
         await state.set_state(LessonSelect.after_topic)
 
+
+@router.message(LessonSelect.waiting_for_files, F.text == "⬅️ К темам")
+async def handle_back_to_topics(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    course_id = data.get("course_id")
+
+    await show_course_topics(message, course_id, state)
+    await state.set_state(LessonSelect.waiting_for_topic)
 
 
 @router.message(LessonSelect.waiting_for_files, F.media_group_id)
