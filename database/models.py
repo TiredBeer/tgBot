@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Index, Date
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Index, Date, Boolean
 from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
@@ -9,6 +9,7 @@ class Course(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(256), nullable=False)
     password_hash = Column(String(256), nullable=False)
+    is_deleted = Column(Boolean, nullable=False)
 
 
 class Status(Base):

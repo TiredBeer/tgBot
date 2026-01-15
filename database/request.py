@@ -31,7 +31,7 @@ async def get_available_courses_for_student(tg_id: int) -> list[Course]:
 
         # Шаг 3: получаем все курсы по этим course_id
         result = await session.execute(
-            select(Course).where(Course.id.in_(course_ids))
+            select(Course).where(Course.id.in_(course_ids)).where(Course.is_deleted == False)
         )
         return result.scalars().all()
 
