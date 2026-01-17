@@ -106,10 +106,15 @@ async def print_task_information(message: types.Message, state: FSMContext, task
         refactor_massage += f"💬 Комментарий: {comment}\n\n" if comment else "\n"
         text = refactor_massage + text
 
+    if last_work.code_url:
+        text += f"💻 Ссылка на код: {last_work.code_url}\n"
+
     prefix = last_work.homework_prefix
-    files = await get_files_by_mask(prefix)
-    if files:
+    if prefix:
+        files = await get_files_by_mask(prefix)
         await send_files_with_caption(files, message.bot, message.chat.id, text)
+    elif last_work.code_url:
+        await message.answer(text)
     else:
         await message.answer("Технические неполадки, попробуй еще раз")
 
@@ -228,6 +233,7 @@ async def take_optional_pdf(message: types.Message, state: FSMContext, bot: Bot)
         "2) Теперь пришли ссылку на код (Google Colab) или нажми «⏭ Пропустить ссылку».",
         reply_markup=skip_code_kb
     )
+    await state.update_data(is_uploaded_file=True)
     await state.set_state(LessonSelect.waiting_for_code_url_optional)
 
 
@@ -282,7 +288,8 @@ async def finalize_submission(message: types.Message, state: FSMContext):
     student_id = data.get("student_id")
     task_id = data.get("task_id")
     code_url = data.get("code_url")
-    mask_prefix = await get_mask_for_save(state)
+    is_uploaded_file = data.get("is_uploaded_file", False)
+    mask_prefix = await get_mask_for_save(state) if is_uploaded_file else None
     await save_submission_to_db(student_id, task_id, mask_prefix, code_url=code_url)
 
     task = await get_task_by_id(task_id)

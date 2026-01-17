@@ -74,7 +74,7 @@ class SubmittedTask(Base):
     task = relationship("Task", back_populates="submitted_tasks")
     student = relationship("Student", back_populates="submitted_tasks")
     status = relationship("Status", back_populates="submitted_tasks")
-    code_url = Column(String(256), nullable=True, default=None)
+    code_url = Column(String(512), nullable=True, default=None)
     # если хочется, можно и сюда связь добавить
     teacher = relationship("Teacher")
 

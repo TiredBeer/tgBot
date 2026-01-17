@@ -76,7 +76,7 @@ async def get_student_id_by_telegram_id(tg_id: int) -> int | None:
         return student_id
 
 
-async def save_submission_to_db(student_id: int, task_id: int, prefix: str, code_url: str | None):
+async def save_submission_to_db(student_id: int, task_id: int, prefix: str | None, code_url: str | None):
     async with async_session() as session:
         result = await session.execute(
             select(SubmittedTask).where(
@@ -90,14 +90,15 @@ async def save_submission_to_db(student_id: int, task_id: int, prefix: str, code
             # Обновляем дату и путь (если хочешь)
             existing.last_modified_date = now
             existing.status_id = 0
-            if code_url is not None:
-                existing.code_url = code_url
+
+            existing.homework_prefix = "" if prefix is None else prefix # TODO надо попарвить н None
+            existing.code_url = code_url
         else:
             submission = SubmittedTask(
                 student_id=student_id,
                 task_id=task_id,
                 status_id=0, # 0 значит на проверке, 1 Проверено
-                homework_prefix=prefix,
+                homework_prefix="" if prefix is None else prefix, # TODO надо попарвить н None
                 submitted_date=now,
                 last_modified_date=now,
                 comment="",
