@@ -91,14 +91,14 @@ async def save_submission_to_db(student_id: int, task_id: int, prefix: str | Non
             existing.last_modified_date = now
             existing.status_id = 0
 
-            existing.homework_prefix = "" if prefix is None else prefix # TODO надо попарвить н None
+            existing.homework_prefix = prefix
             existing.code_url = code_url
         else:
             submission = SubmittedTask(
                 student_id=student_id,
                 task_id=task_id,
                 status_id=0, # 0 значит на проверке, 1 Проверено
-                homework_prefix="" if prefix is None else prefix, # TODO надо попарвить н None
+                homework_prefix=prefix,
                 submitted_date=now,
                 last_modified_date=now,
                 comment="",

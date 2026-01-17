@@ -63,7 +63,7 @@ class SubmittedTask(Base):
         nullable=False,
     )
 
-    homework_prefix = Column(String(256), nullable=False)
+    homework_prefix = Column(String(256), nullable=True, default=None)
 
     last_modified_date = Column(DateTime(timezone=True), nullable=False)
     submitted_date = Column(DateTime(timezone=True), nullable=False)
