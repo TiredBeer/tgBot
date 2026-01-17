@@ -74,6 +74,7 @@ class SubmittedTask(Base):
     task = relationship("Task", back_populates="submitted_tasks")
     student = relationship("Student", back_populates="submitted_tasks")
     status = relationship("Status", back_populates="submitted_tasks")
+    code_url = Column(String(256), nullable=True, default=None)
     # если хочется, можно и сюда связь добавить
     teacher = relationship("Teacher")
 
@@ -101,6 +102,7 @@ class Task(Base):
 
     teacher = relationship("Teacher", back_populates="tasks")
     submitted_tasks = relationship("SubmittedTask", back_populates="task")
+    need_code = Column(Boolean, nullable=False, default=False)
 
     __table_args__ = (
         Index("IX_tasks_course_id", "course_id"),

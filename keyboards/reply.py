@@ -23,3 +23,15 @@ back_to_topics_kb = ReplyKeyboardMarkup(
     keyboard=[[KeyboardButton(text="⬅️ К темам")]],
     resize_keyboard=True,
 )
+
+skip_pdf_kb = ReplyKeyboardMarkup(
+    keyboard=[[KeyboardButton(text="⏭ Пропустить PDF")],
+              [KeyboardButton(text="⬅️ К темам")]],
+    resize_keyboard=True
+)
+
+skip_code_kb = ReplyKeyboardMarkup(
+    keyboard=[[KeyboardButton(text="⏭ Пропустить ссылку")],
+              [KeyboardButton(text="⬅️ К темам")]],
+    resize_keyboard=True
+)

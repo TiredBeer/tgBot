@@ -20,3 +20,6 @@ class LessonSelect(StatesGroup):
     waiting_for_topic = State()
     after_topic = State()
     waiting_for_files = State()
+
+    waiting_for_pdf_optional = State()
+    waiting_for_code_url_optional = State()

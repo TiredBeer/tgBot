@@ -12,7 +12,7 @@ from yandexAPI.loader import upload_all_or_none, get_files_by_mask
 from database.request import save_submission_to_db, has_student_submitted, \
     get_task_by_id, get_last_work
 from handlers.course import show_course_topics
-from keyboards.reply import send_or_select_topic, back_to_topics_kb
+from keyboards.reply import send_or_select_topic, back_to_topics_kb, skip_pdf_kb, skip_code_kb
 from states.register import LessonSelect
 from utils.auth import get_mask_for_save
 
@@ -140,80 +140,172 @@ async def handle_reselect_topic(message: types.Message, state: FSMContext):
         course_id = data.get("course_id")
         await show_course_topics(message, course_id, state)
         await state.set_state(LessonSelect.waiting_for_topic)
-    elif message.text == "Отправить задание":
+        return
+
+    if message.text == "🏠 В главное меню":
+        await cmd_help(message)
+        return
+
+    if message.text != "Отправить задание":
         await message.answer(
-            "Отправь файлы одним сообщением.\n"
+            "Выбери действие кнопкой 🙂",
+            reply_markup=send_or_select_topic
+        )
+        await state.set_state(LessonSelect.after_topic)
+        return
+
+    # Отправить задание
+    data = await state.get_data()
+    task_id = data.get("task_id")
+    if not task_id:
+        await message.answer("Сначала выбери тему задания.")
+        await state.set_state(LessonSelect.waiting_for_topic)
+        return
+
+    task = await get_task_by_id(task_id)
+
+    if not task.need_code:
+        await message.answer(
+            "Отправь **один PDF** одним сообщением.\n"
             "Если передумал — нажми «⬅️ К темам».",
             reply_markup=back_to_topics_kb
         )
         await state.set_state(LessonSelect.waiting_for_files)
-    elif message.text == "🏠 В главное меню":
-        await cmd_help(message)
-    else:
-        await message.answer("Хайповое мнение, но может выберешь что ты хочешь сделать?",
-                             reply_markup=send_or_select_topic)
-        await state.set_state(LessonSelect.after_topic)
+        return
+
+    await state.update_data(submitted_files=None, code_url=None)
+
+    await message.answer(
+        "Это задание требует код.\n\n"
+        "1) Отправь **один PDF** (можно пропустить кнопкой «⏭ Пропустить PDF»).",
+        reply_markup=skip_pdf_kb
+    )
+    await state.set_state(LessonSelect.waiting_for_pdf_optional)
 
 
-@router.message(LessonSelect.waiting_for_files, F.text == "⬅️ К темам")
-async def handle_back_to_topics(message: types.Message, state: FSMContext):
+@router.message(LessonSelect.waiting_for_pdf_optional, F.text == "⬅️ К темам")
+async def back_to_topics_from_pdf(message: types.Message, state: FSMContext):
     data = await state.get_data()
-    course_id = data.get("course_id")
-
-    await show_course_topics(message, course_id, state)
+    await show_course_topics(message, data.get("course_id"), state)
     await state.set_state(LessonSelect.waiting_for_topic)
 
 
-@router.message(LessonSelect.waiting_for_files, F.media_group_id)
-async def handle_get_album(message: types.Message, state: FSMContext):
-    media_group_id = str(message.media_group_id)
-    data = await state.get_data()
-    album_cache = data.get("media_group", {})
+@router.message(LessonSelect.waiting_for_pdf_optional, F.text == "⏭ Пропустить PDF")
+async def skip_pdf(message: types.Message, state: FSMContext):
+    await state.update_data(submitted_files=None)
 
-    album_cache.setdefault(media_group_id, []).append(message)
-    await state.update_data(media_group=album_cache)
+    await message.answer(
+        "Ок, PDF пропускаем.\n\n"
+        "2) Пришли ссылку на код (Google Colab) или нажми «⏭ Пропустить ссылку».",
+        reply_markup=skip_code_kb
+    )
+    await state.set_state(LessonSelect.waiting_for_code_url_optional)
 
-    # Ждём, пока Telegram пришлёт все части альбома
-    await asyncio.sleep(1)
 
-    # Повторно получаем данные
-    data = await state.get_data()
-    messages = data.get("media_group", {}).get(media_group_id, [])
-
-    # Только последнее сообщение обрабатывает
-    if message.message_id != messages[-1].message_id:
+@router.message(LessonSelect.waiting_for_pdf_optional, F.document)
+async def take_optional_pdf(message: types.Message, state: FSMContext, bot: Bot):
+    file_name = message.document.file_name.lower()
+    if not file_name.endswith(".pdf"):
+        await message.answer("На этом шаге принимаю только PDF или «⏭ Пропустить PDF».")
         return
 
-    is_uncorrected_files = False
-    files = []
     mask_prefix = await get_mask_for_save(state)
-    for msg in messages:
-        if msg.document:
-            file_name = msg.document.file_name.lower()
-            if file_name.endswith(".pdf") or file_name.endswith(".py"):
-                files.append({
-                    "file_id": msg.document.file_id,
-                    "original_file_name": msg.document.file_name,
-                    "mask_for_save": mask_prefix
-                })
-            else:
-                is_uncorrected_files = True
-                break
-    if is_uncorrected_files:
-        await message.answer(
-            "Ты отправил недопустимые файлы. Принимаются только .pdf и .py. Попробуй еще раз.")
+    files = [{
+        "file_id": message.document.file_id,
+        "original_file_name": message.document.file_name,
+        "mask_for_save": mask_prefix
+    }]
+
+    ok = await upload_all_or_none(files, bot)
+    if not ok:
+        await message.answer("Не удалось загрузить PDF. Попробуй ещё раз или пропусти.")
         return
 
-    await after_accepting_files(files, message, state, mask_prefix)
+    await state.update_data(submitted_files=files)
+
+    await message.answer(
+        "PDF принят ✅\n\n"
+        "2) Теперь пришли ссылку на код (Google Colab) или нажми «⏭ Пропустить ссылку».",
+        reply_markup=skip_code_kb
+    )
+    await state.set_state(LessonSelect.waiting_for_code_url_optional)
+
+
+@router.message(LessonSelect.waiting_for_pdf_optional)
+async def reject_pdf_optional_other(message: types.Message):
+    await message.answer("Отправь один PDF или нажми «⏭ Пропустить PDF».")
+
+
+@router.message(LessonSelect.waiting_for_code_url_optional, F.text == "⬅️ К темам")
+async def back_to_topics_from_code(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    await show_course_topics(message, data.get("course_id"), state)
+    await state.set_state(LessonSelect.waiting_for_topic)
+
+
+@router.message(LessonSelect.waiting_for_code_url_optional, F.text == "⏭ Пропустить ссылку")
+async def skip_code_url(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    files = data.get("submitted_files")
+    code_url = data.get("code_url")
+
+    if not files and not code_url:
+        await message.answer(
+            "Ты пропустил и PDF, и ссылку — значит ничего не отправил.\n"
+            "Работа не сдана. Возвращаю к темам."
+        )
+        await show_course_topics(message, data.get("course_id"), state)
+        await state.set_state(LessonSelect.waiting_for_topic)
+        return
+
+    await finalize_submission(message, state)
+
+
+@router.message(LessonSelect.waiting_for_code_url_optional, F.text)
+async def take_code_url(message: types.Message, state: FSMContext):
+    url = message.text.strip()
+    if not (url.startswith("http://") or url.startswith("https://")):
+        await message.answer("Пришли ссылку (http/https) или нажми «⏭ Пропустить ссылку».")
+        return
+
+    await state.update_data(code_url=url)
+    await finalize_submission(message, state)
+
+
+@router.message(LessonSelect.waiting_for_code_url_optional)
+async def reject_code_other(message: types.Message):
+    await message.answer("Пришли ссылку текстом или нажми «⏭ Пропустить ссылку».")
+
+
+async def finalize_submission(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    student_id = data.get("student_id")
+    task_id = data.get("task_id")
+    code_url = data.get("code_url")
+    mask_prefix = await get_mask_for_save(state)
+    await save_submission_to_db(student_id, task_id, mask_prefix, code_url=code_url)
+
+    task = await get_task_by_id(task_id)
+    await print_task_information(message, state, task, is_new_load=False)
+
+    await message.answer("Готово ✅ Что дальше?", reply_markup=send_or_select_topic)
+    await state.set_state(LessonSelect.after_topic)
+
+
+@router.message(LessonSelect.waiting_for_files, F.text == "⬅️ К темам")
+async def back_to_topics_from_files(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    await show_course_topics(message, data.get("course_id"), state)
+    await state.set_state(LessonSelect.waiting_for_topic)
 
 
 @router.message(LessonSelect.waiting_for_files, F.document)
 async def handle_get_single_file(message: types.Message, state: FSMContext):
     file_name = message.document.file_name.lower()
-    if not (file_name.endswith(".pdf") or file_name.endswith(".py")):
-        await message.answer(
-            "Ты отправил недопустимые файл. Принимаются только .pdf и .py. Попробуй еще раз.")
+    if not file_name.endswith(".pdf"):
+        await message.answer("Принимается только один файл формата .pdf. Попробуй ещё раз.")
         return
+
     mask_prefix = await get_mask_for_save(state)
     file = {
         "file_id": message.document.file_id,
@@ -223,15 +315,21 @@ async def handle_get_single_file(message: types.Message, state: FSMContext):
     await after_accepting_files([file], message, state, mask_prefix)
 
 
+@router.message(LessonSelect.waiting_for_files)
+async def reject_non_files(message: types.Message):
+    await message.answer("Пожалуйста, отправь **один PDF** или нажми «⬅️ К темам».")
+
+
 async def after_accepting_files(files, message, state, mask_prefix):
     data = await state.get_data()
     student_id = data.get("student_id")
     task_id = data.get("task_id")
+    code_url = data.get("code_url")
     bot = message.bot
     is_ok_load = await upload_all_or_none(files, bot)
     if is_ok_load:
         task = await get_task_by_id(task_id)
-        await save_submission_to_db(student_id, task_id, mask_prefix)
+        await save_submission_to_db(student_id, task_id, mask_prefix, code_url=code_url)
         await state.update_data(submitted_files=files)
         await print_task_information(message, state, task, is_new_load=False)
         await message.answer("Что ты хочешь сделать дальше?",
@@ -245,4 +343,4 @@ async def after_accepting_files(files, message, state, mask_prefix):
 
 @router.message(LessonSelect.waiting_for_files)
 async def reject_non_files(message: types.Message):
-    await message.answer("Пожалуйста, отправь файл формата .pdf или .py.")
+    await message.answer("Пожалуйста, отправь файл формата .pdf")
