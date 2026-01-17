@@ -43,7 +43,7 @@ async def alerts(bot: Bot, sleep: int = 1):
                 teacher = task.teacher
 
                 text = (
-                    f"❗️ Ваше задание по теме «{task.topic}» проверено. ❗️\n"
+                    f"❗️ Ваше задание по теме «{task.topic}» проверено.\n"
                     f"📊 Оценка: {st.grade}\n"
                     f"💬 Коммент: {st.comment}\n"
                     f"👤 Преподаватель: {teacher.name} {teacher.telegram_nickname}\n"
