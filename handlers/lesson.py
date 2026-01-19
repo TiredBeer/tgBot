@@ -170,7 +170,7 @@ async def handle_reselect_topic(message: types.Message, state: FSMContext):
 
     if not task.need_code:
         await message.answer(
-            "Отправь **один PDF** одним сообщением.\n"
+            "Отправь PDF одним сообщением.\n"
             "Если передумал — нажми «⬅️ К темам».",
             reply_markup=back_to_topics_kb
         )
@@ -180,8 +180,8 @@ async def handle_reselect_topic(message: types.Message, state: FSMContext):
     await state.update_data(submitted_files=None, code_url=None)
 
     await message.answer(
-        "Это задание требует код.\n\n"
-        "1) Отправь **один PDF** (можно пропустить кнопкой «⏭ Пропустить PDF»).",
+        "На это задание можно отправть PDF или ссылку на Google Colab c кодом!\n\n"
+        "Отправь PDF или пропусти этот шаг.",
         reply_markup=skip_pdf_kb
     )
     await state.set_state(LessonSelect.waiting_for_pdf_optional)
@@ -200,7 +200,7 @@ async def skip_pdf(message: types.Message, state: FSMContext):
 
     await message.answer(
         "Ок, PDF пропускаем.\n\n"
-        "2) Пришли ссылку на код (Google Colab) или нажми «⏭ Пропустить ссылку».",
+        "Пришли ссылку на код (Google Colab) или нажми «⏭️ Пропустить PDF».",
         reply_markup=skip_code_kb
     )
     await state.set_state(LessonSelect.waiting_for_code_url_optional)
@@ -229,7 +229,7 @@ async def take_optional_pdf(message: types.Message, state: FSMContext, bot: Bot)
 
     await message.answer(
         "PDF принят ✅\n\n"
-        "2) Теперь пришли ссылку на код (Google Colab) или нажми «⏭ Пропустить ссылку».",
+        "Теперь пришли ссылку на код (Google Colab) или нажми «⏭ Пропустить ссылку».",
         reply_markup=skip_code_kb
     )
     await state.update_data(is_uploaded_file=True)
