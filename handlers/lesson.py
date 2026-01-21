@@ -333,13 +333,14 @@ async def after_accepting_files(files, message, state, mask_prefix):
     student_id = data.get("student_id")
     task_id = data.get("task_id")
     code_url = data.get("code_url")
+    state.update_data(code_url=None) # Мы в ветке только с файлами
     bot = message.bot
     is_ok_load = await upload_all_or_none(files, bot)
     if is_ok_load:
         task = await get_task_by_id(task_id)
         print("after_accepting_files", "student_id:", student_id, "task_id:", task_id, "code_url:", code_url,
               "mask_prefix", mask_prefix)
-        await save_submission_to_db(student_id, task_id, mask_prefix, code_url=code_url)
+        await save_submission_to_db(student_id, task_id, mask_prefix, code_url=None) # Передам code_url=None чтобы точно затереть к хуям
         await state.update_data(submitted_files=files)
         await print_task_information(message, state, task, is_new_load=False)
         await message.answer("Что ты хочешь сделать дальше?",
