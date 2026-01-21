@@ -289,6 +289,7 @@ async def finalize_submission(message: types.Message, state: FSMContext):
     code_url = data.get("code_url")
     is_uploaded_file = data.get("is_uploaded_file", False)
     mask_prefix = await get_mask_for_save(state) if is_uploaded_file else None
+    print("finalize_submission", "student_id:", student_id, "task_id:", task_id, "code_url:", code_url, "mask_prefix", mask_prefix)
     await save_submission_to_db(student_id, task_id, mask_prefix, code_url=code_url)
 
     task = await get_task_by_id(task_id)
@@ -335,6 +336,8 @@ async def after_accepting_files(files, message, state, mask_prefix):
     is_ok_load = await upload_all_or_none(files, bot)
     if is_ok_load:
         task = await get_task_by_id(task_id)
+        print("after_accepting_files", "student_id:", student_id, "task_id:", task_id, "code_url:", code_url,
+              "mask_prefix", mask_prefix)
         await save_submission_to_db(student_id, task_id, mask_prefix, code_url=code_url)
         await state.update_data(submitted_files=files)
         await print_task_information(message, state, task, is_new_load=False)
