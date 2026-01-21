@@ -196,6 +196,7 @@ async def back_to_topics_from_pdf(message: types.Message, state: FSMContext):
 
 @router.message(LessonSelect.waiting_for_pdf_optional, F.text == "⏭ Пропустить PDF")
 async def skip_pdf(message: types.Message, state: FSMContext):
+    await state.update_data(is_uploaded_file=False)
     await state.update_data(submitted_files=None)
 
     await message.answer(
