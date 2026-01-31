@@ -1,18 +1,37 @@
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 
-lesson_actions_keyboard = ReplyKeyboardMarkup(
+helm_button = ReplyKeyboardMarkup(
     keyboard=[
-        [KeyboardButton(text="Отправить домашку")],
-        [KeyboardButton(text="Отправить дорешку")],
-        [KeyboardButton(text="Отправить гробы")],
-        [KeyboardButton(text="Выбрать другую тему")],
+        [KeyboardButton(text="📚 Выбрать курс")],
+        [KeyboardButton(text="📝 Темы домашних заданий")],
+        [KeyboardButton(text="ℹ️ Помощь")],
     ],
+    resize_keyboard=True,
+)
+
+go_home = [[KeyboardButton(text="🏠 В главное меню")],]
+
+send_or_select_topic = ReplyKeyboardMarkup(
+    keyboard=[
+        [KeyboardButton(text="Выбрать другую тему")],
+        [KeyboardButton(text="Отправить задание")]
+    ] + go_home,
     resize_keyboard=True
 )
 
-cancel_files_keyboard = ReplyKeyboardMarkup(
-    keyboard=[
-        [KeyboardButton(text="Я передумал, вернемся к выбору действий")],
-    ],
+back_to_topics_kb = ReplyKeyboardMarkup(
+    keyboard=[[KeyboardButton(text="⬅️ К темам")]],
+    resize_keyboard=True,
+)
+
+skip_pdf_kb = ReplyKeyboardMarkup(
+    keyboard=[[KeyboardButton(text="⏭ Пропустить PDF")],
+              [KeyboardButton(text="⬅️ К темам")]],
+    resize_keyboard=True
+)
+
+skip_code_kb = ReplyKeyboardMarkup(
+    keyboard=[[KeyboardButton(text="⏭ Пропустить ссылку")],
+              [KeyboardButton(text="⬅️ К темам")]],
     resize_keyboard=True
 )

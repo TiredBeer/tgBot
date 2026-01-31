@@ -15,7 +15,7 @@ async def main():
     dp.include_router(course.router)
     dp.include_router(rolllback.router)
 
-    asyncio.create_task(alerts(bot, sleep=ALERT_TIME)) # час
+    asyncio.create_task(alerts(bot, sleep=ALERT_TIME))
 
     await dp.start_polling(bot)
 

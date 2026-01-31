@@ -6,33 +6,30 @@ from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
 from database.request import get_available_courses_for_student
 from states.register import Lesson, CourseSelect, LessonSelect
 from handlers.course import show_course_topics
+from keyboards.reply import helm_button, go_home
 
 router = Router()
 
 
 @router.message(Command("help"))
+@router.message(lambda m: m.text == "🏠 В главное меню")
+@router.message(lambda m: m.text == "ℹ️ Помощь")
 async def cmd_help(message: types.Message):
-    await message.answer(
-        "/help - помощь\n"
-        "/choose_course - выбрать курс\n"
-        "/get_lesson - посмотреть темы уроков и сдать задания"
-    )
+    await message.answer("Что делаем?", reply_markup=helm_button)
 
 
 @router.message(Command("start"))
 async def cmd_start(message: types.Message):
     await message.answer(
         "Привет, я бот для отправок домашних работ и гробов по теории вероятности и математической статистике\n"
-        "Узнать о моем функционале: /help"
+        "Узнать о моем функционале: /help",
+        reply_markup = helm_button
     )
 
 
-@router.message(Command("get_lesson"))
+@router.message(lambda m: m.text == "📝 Темы домашних заданий")
 async def get_lesson(message: types.Message, state: FSMContext):
     data = await state.get_data()
-    if "is_graves" in data:
-        data["is_graves"] = False
-        print(data["is_graves"])
     if "course_id" not in data:
         courses = await get_available_courses_for_student(message.from_user.id)
 
@@ -54,7 +51,7 @@ async def get_lesson(message: types.Message, state: FSMContext):
         await state.set_state(LessonSelect.waiting_for_topic)
 
 
-@router.message(Command("choose_course"))
+@router.message(lambda m: m.text == "📚 Выбрать курс")
 async def get_my_course(message: types.Message, state: FSMContext):
     courses = await get_available_courses_for_student(message.from_user.id)
 
@@ -66,8 +63,9 @@ async def get_my_course(message: types.Message, state: FSMContext):
     course_map = {course.name: course.id for course in courses}
     await state.update_data(course_map=course_map)
 
-    buttons = [[KeyboardButton(text=course.name)] for course in courses]
+    buttons = [[KeyboardButton(text=course.name)] for course in courses] + go_home
     kb = ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
 
     await message.answer("Вот твои доступные курсы", reply_markup=kb)
     await state.set_state(CourseSelect.waiting_for_course)
+

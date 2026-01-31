@@ -43,10 +43,10 @@ async def alerts(bot: Bot, sleep: int = 1):
                 teacher = task.teacher
 
                 text = (
-                    f"Ваше задание по теме «{task.topic}» проверено.\n"
-                    f"📝Оценка: {st.grade}\n"
+                    f"❗️ Ваше задание по теме «{task.topic}» проверено.\n"
+                    f"📊 Оценка: {st.grade}\n"
                     f"💬 Коммент: {st.comment}\n"
-                    f"👤 Преподаватель: {teacher.name} {teacher.telegram_nickname}\n)"
+                    f"👤 Преподаватель: {teacher.name} {teacher.telegram_nickname}\n"
                 )
 
                 try:
@@ -63,13 +63,4 @@ async def alerts(bot: Bot, sleep: int = 1):
             await session.commit()
 
         await asyncio.sleep(sleep)
-
-
-
-async def run_periodic_task():
-    await asyncio.create_task(alerts())
-
-
-if __name__ == '__main__':
-    asyncio.run(alerts())
 

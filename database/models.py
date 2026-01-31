@@ -1,20 +1,15 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Index, Date, Numeric
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Index, Date, Boolean
 from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
-
-
-class Group(Base):
-    __tablename__ = "groups"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String(256), nullable=False)
 
 
 class Course(Base):
     __tablename__ = "courses"
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(256), nullable=False)
-    password_hash = Column(Numeric, nullable=False)
+    password_hash = Column(String(256), nullable=False)
+    is_deleted = Column(Boolean, nullable=False)
 
 
 class Status(Base):
@@ -28,20 +23,17 @@ class Status(Base):
 class Student(Base):
     __tablename__ = "students"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    group_id = Column(Integer, ForeignKey("groups.id", ondelete="CASCADE"),
-                      nullable=False)
+    group_name = Column(String(256), nullable=False)
     name = Column(String(256), nullable=False)
     telegram_id = Column(Integer, nullable=False)
     course_id = Column(Integer, ForeignKey("courses.id", ondelete="CASCADE"),
                        nullable=False)
 
     submitted_tasks = relationship("SubmittedTask", back_populates="student")
-    group = relationship("Group")
     course = relationship("Course")
 
     __table_args__ = (
         Index("IX_students_course_id", "course_id"),
-        Index("IX_students_group_id", "group_id"),
     )
 
 
@@ -64,14 +56,13 @@ class SubmittedTask(Base):
         ForeignKey("statuses.id", ondelete="CASCADE"),
         nullable=False,
     )
-    # новое поле, которое у тебя есть в БД
     teacher_id = Column(
         Integer,
         ForeignKey("teachers.id", ondelete="CASCADE"),
         nullable=False,
     )
 
-    homework_prefix = Column(String(256), nullable=False)
+    homework_prefix = Column(String(256), nullable=True, default=None)
 
     last_modified_date = Column(DateTime(timezone=True), nullable=False)
     submitted_date = Column(DateTime(timezone=True), nullable=False)
@@ -82,15 +73,13 @@ class SubmittedTask(Base):
     task = relationship("Task", back_populates="submitted_tasks")
     student = relationship("Student", back_populates="submitted_tasks")
     status = relationship("Status", back_populates="submitted_tasks")
-    # если хочется, можно и сюда связь добавить
+    code_url = Column(String(512), nullable=True, default=None)
     teacher = relationship("Teacher")
 
     __table_args__ = (
         Index("IX_submitted_tasks_status_id", "status_id"),
         Index("IX_submitted_tasks_student_id", "student_id"),
         Index("IX_submitted_tasks_task_id", "task_id"),
-        # если в БД есть индекс по teacher_id, можно добавить и его:
-        # Index("IX_submitted_tasks_teacher_id", "teacher_id"),
     )
 
 
@@ -102,13 +91,14 @@ class Task(Base):
     task_link = Column(String(256), nullable=False)
     deadline = Column(Date, nullable=False)
     teacher_id = Column(Integer, ForeignKey("teachers.id", ondelete="CASCADE"),
-                        nullable=False)  # renamed from teacher
+                        nullable=False)
     type = Column(Integer, nullable=False)
     course_id = Column(Integer, ForeignKey("courses.id", ondelete="CASCADE"),
                        nullable=False)
 
     teacher = relationship("Teacher", back_populates="tasks")
     submitted_tasks = relationship("SubmittedTask", back_populates="task")
+    need_code = Column(Boolean, nullable=False, default=False)
 
     __table_args__ = (
         Index("IX_tasks_course_id", "course_id"),
@@ -151,12 +141,11 @@ class SubmittedTaskOnChange(Base):
         nullable=False,
     )
 
-    # ОСТАВЛЯЕМ ТОЛЬКО ЭТО:
-    submitted_task = relationship("SubmittedTask")  # без back_populates
+    submitted_task = relationship("SubmittedTask")
 
     __table_args__ = (
         Index(
             "IX_SubmittedTaskOnChange_SubmittedTaskId",
-            submitted_task_id,  # важно: сам объект колонки
+            submitted_task_id,
         ),
     )

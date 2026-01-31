@@ -10,5 +10,4 @@ async def fallback_handler(message: types.Message, state: FSMContext):
     current_state = await state.storage.get_state(key)
 
     if current_state is None:
-        await message.answer("Пожалуйста, не пиши ничего лишнего. Не нужно грузить сервер который держится на картошке\n"
-                             "используй /help чтобы посмотреть доступные команды")
+        await message.answer("Мне кажется ты заблудиля. Используй /help")
