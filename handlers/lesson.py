@@ -63,7 +63,6 @@ async def print_task_information(message: types.Message, state: FSMContext, task
     task_id = data["task_id"]
     student_id = data.get("student_id")
     last_work = await get_last_work(student_id, task_id)
-    # last_verified_work = await get_last_verified_work(student_id, task_id)
 
     topic = last_work.task.topic
     deadline = last_work.task.deadline
@@ -158,7 +157,6 @@ async def handle_reselect_topic(message: types.Message, state: FSMContext):
         await state.set_state(LessonSelect.after_topic)
         return
 
-    # Отправить задание
     data = await state.get_data()
     task_id = data.get("task_id")
     if not task_id:
@@ -340,7 +338,7 @@ async def after_accepting_files(files, message, state, mask_prefix):
         task = await get_task_by_id(task_id)
         print("after_accepting_files", "student_id:", student_id, "task_id:", task_id, "code_url:", code_url,
               "mask_prefix", mask_prefix)
-        await save_submission_to_db(student_id, task_id, mask_prefix, code_url=None) # Передам code_url=None чтобы точно затереть к хуям
+        await save_submission_to_db(student_id, task_id, mask_prefix, code_url=None) # Передам code_url=None чтобы точно затереть
         await state.update_data(submitted_files=files)
         await print_task_information(message, state, task, is_new_load=False)
         await message.answer("Что ты хочешь сделать дальше?",

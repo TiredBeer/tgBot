@@ -56,7 +56,6 @@ class SubmittedTask(Base):
         ForeignKey("statuses.id", ondelete="CASCADE"),
         nullable=False,
     )
-    # новое поле, которое у тебя есть в БД
     teacher_id = Column(
         Integer,
         ForeignKey("teachers.id", ondelete="CASCADE"),
@@ -75,15 +74,12 @@ class SubmittedTask(Base):
     student = relationship("Student", back_populates="submitted_tasks")
     status = relationship("Status", back_populates="submitted_tasks")
     code_url = Column(String(512), nullable=True, default=None)
-    # если хочется, можно и сюда связь добавить
     teacher = relationship("Teacher")
 
     __table_args__ = (
         Index("IX_submitted_tasks_status_id", "status_id"),
         Index("IX_submitted_tasks_student_id", "student_id"),
         Index("IX_submitted_tasks_task_id", "task_id"),
-        # если в БД есть индекс по teacher_id, можно добавить и его:
-        # Index("IX_submitted_tasks_teacher_id", "teacher_id"),
     )
 
 
@@ -95,7 +91,7 @@ class Task(Base):
     task_link = Column(String(256), nullable=False)
     deadline = Column(Date, nullable=False)
     teacher_id = Column(Integer, ForeignKey("teachers.id", ondelete="CASCADE"),
-                        nullable=False)  # renamed from teacher
+                        nullable=False)
     type = Column(Integer, nullable=False)
     course_id = Column(Integer, ForeignKey("courses.id", ondelete="CASCADE"),
                        nullable=False)
@@ -145,12 +141,11 @@ class SubmittedTaskOnChange(Base):
         nullable=False,
     )
 
-    # ОСТАВЛЯЕМ ТОЛЬКО ЭТО:
-    submitted_task = relationship("SubmittedTask")  # без back_populates
+    submitted_task = relationship("SubmittedTask")
 
     __table_args__ = (
         Index(
             "IX_SubmittedTaskOnChange_SubmittedTaskId",
-            submitted_task_id,  # важно: сам объект колонки
+            submitted_task_id,
         ),
     )

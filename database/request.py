@@ -16,20 +16,17 @@ async def get_student_by_telegram_id(telegram_id: int) -> Student | None:
 
 async def get_available_courses_for_student(tg_id: int) -> list[Course]:
     async with async_session() as session:
-        # Шаг 1: ищем всех студентов с данным telegram_id
         result = await session.execute(
             select(Student).where(Student.telegram_id == tg_id)
         )
         students = result.scalars().all()
 
-        # Шаг 2: собираем уникальные course_id из этих студентов
         course_ids = {student.course_id for student in students if
                       student.course_id is not None}
 
         if not course_ids:
             return []
 
-        # Шаг 3: получаем все курсы по этим course_id
         result = await session.execute(
             select(Course).where(Course.id.in_(course_ids)).where(Course.is_deleted == False)
         )
@@ -60,7 +57,7 @@ async def get_task_by_id(task_id: int) -> Task | None:
     async with async_session() as session:
         result = await session.execute(
             select(Task)
-            .options(selectinload(Task.teacher))  # подгружаем teacher
+            .options(selectinload(Task.teacher))
             .where(Task.id == task_id)
         )
         return result.scalar_one_or_none()
@@ -87,7 +84,7 @@ async def save_submission_to_db(student_id: int, task_id: int, prefix: str | Non
         existing: SubmittedTask = result.scalar_one_or_none()
         now = datetime.now(ZoneInfo("Asia/Yekaterinburg"))
         if existing:
-            # Обновляем дату и путь (если хочешь)
+            # Обновляем дату и путь
             existing.last_modified_date = now
             existing.status_id = 0
 
@@ -114,10 +111,8 @@ async def get_last_work(student_id: int,
         result = await session.execute(
             select(SubmittedTask)
             .options(
-                # для каждой найденной отправки сразу подтянем Task и у него — Teacher
                 selectinload(SubmittedTask.task)
                 .selectinload(Task.teacher),
-                # и сразу подтянем Status
                 selectinload(SubmittedTask.status),
             )
             .where(SubmittedTask.student_id == student_id,
@@ -127,23 +122,6 @@ async def get_last_work(student_id: int,
         )
         return result.scalars().first()
 
-# async def get_last_verified_work(student_id: int, task_id: int) -> SubmittedTask | None:
-#     async with async_session() as session:
-#         result = await session.execute(
-#             select(SubmittedTask)
-#             .options(
-#                 selectinload(SubmittedTask.task)
-#                 .selectinload(Task.teacher),
-#                 selectinload(SubmittedTask.status),
-#             )
-#             .where(SubmittedTask.student_id == student_id,
-#                    SubmittedTask.task_id == task_id, SubmittedTask.status_id == 2)
-#             .order_by(desc(SubmittedTask.submitted_date))
-#             .limit(1)
-#         )
-#         return result.scalars().first()
-
-
 async def get_submitted_task_with_relations(
     submitted_task_id: int,
 ) -> SubmittedTask | None:
@@ -151,11 +129,8 @@ async def get_submitted_task_with_relations(
         result = await session.execute(
             select(SubmittedTask)
             .options(
-                # подтягиваем Task
                 selectinload(SubmittedTask.task),
-                # подтягиваем Status
                 selectinload(SubmittedTask.status),
-                # подтягиваем Student
                 selectinload(SubmittedTask.student),
             )
             .where(SubmittedTask.id == submitted_task_id)

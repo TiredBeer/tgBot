@@ -18,7 +18,7 @@ async def upload_all_or_none(files: list[dict], bot: Bot) -> bool:
     if not files:
         return False
 
-    prefix = files[0]["mask_for_save"]  # все файлы в одной папке
+    prefix = files[0]["mask_for_save"]
     loaded_files = []
 
     # 1. Скачиваем все файлы из Telegram

@@ -38,7 +38,6 @@ async def get_or_load_user_from_db(state: FSMContext, message: Message) -> bool:
     if not student:
         return False  # доступа нет
 
-    # Сохраняем в FSMContext
     await state.update_data(
         fio=student.name,
         user_id=message.from_user.id
